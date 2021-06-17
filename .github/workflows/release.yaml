@@ -7,20 +7,33 @@ on:
     workflows:
       - 'ci'
 jobs:
+  print-env:
+    name: print envs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hmarr/debug-action@v2
   create-release:
     name: Create release
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.actor == 'nsmbot' && contains(github.ref, 'refs/heads/release/') }}
+    if: ${{ contains(github.event.workflow_run.head_branch, 'release/') }}
     steps:
       - name: Get tag
-        run: echo '::set-output name=tag::'${GITHUB_REF#refs/heads/release/}
+        run: |
+          branch=${{github.event.workflow_run.head_branch}}
+          echo '::set-output name=tag::'${branch#release/}
         id: get-tag-step
+      - uses: dev-drprasad/delete-tag-and-release@v0.2.0
+        with:
+          delete_release: true
+          tag_name: refs/tags/${{ steps.get-tag-step.outputs.tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.MY_TOKEN }}
         with:
-          tag_name: ${{ steps.get-tag-step.outputs.tag }}
-          release_name: Release ${{ steps.get-tag-step.outputs.tag }}
+          tag_name: refs/tags/${{ steps.get-tag-step.outputs.tag }}
+          release_name: ${{ steps.get-tag-step.outputs.tag }}
           draft: false
           prerelease: false
